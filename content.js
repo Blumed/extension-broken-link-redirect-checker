@@ -2,6 +2,8 @@
 
 // Map to store references to link elements by their unique ID
 const linkElements = new Map();
+// Map to store jump link elements by their href for highlighting
+const jumpLinkElements = new Map();
 let linkIdCounter = 0; // Simple counter for unique IDs
 
 // Status counters and URL lists
@@ -11,7 +13,8 @@ const statusCounts = {
   broken: 0,
   network_error: 0,
   invalid_url: 0,
-  unknown: 0
+  unknown: 0,
+  jump_links: 0
 };
 
 const statusUrls = {
@@ -20,12 +23,14 @@ const statusUrls = {
   broken: [],
   network_error: [],
   invalid_url: [],
-  unknown: []
+  unknown: [],
+  jump_links: []
 };
 
 // Function to process a single link
 function processLink(linkElement) {
   const href = linkElement.href;
+  const rawHref = linkElement.getAttribute('href');
 
   // Generate a unique ID for this link
   const linkId = `link-${linkIdCounter++}`;
@@ -34,6 +39,18 @@ function processLink(linkElement) {
   // We store it *before* sending the message, so we can always reference it.
   linkElements.set(linkId, linkElement);
 
+  // Check if it's a jump link (starts with # or contains #)
+  if (rawHref && (rawHref.startsWith('#') || rawHref.includes('#'))) {
+    linkElement.style.setProperty('color', 'blue', 'important');
+    linkElement.title = 'Jump Link (Contains Hash Fragment)';
+    statusCounts.jump_links++;
+    statusUrls.jump_links.push(rawHref);
+    // Store jump link for highlighting
+    jumpLinkElements.set(rawHref, linkElement);
+    linkElements.delete(linkId);
+    return;
+  }
+  
   // --- Robust URL validation before sending to background script ---
   let validatedUrl;
   try {
@@ -143,7 +160,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function findAndProcessLinks(node) {
   if (node.nodeType === Node.ELEMENT_NODE) {
     // If the node itself is an anchor tag
-    if (node.tagName === 'A' && node.href) {
+    if (node.tagName === 'A' && node.getAttribute('href')) {
       processLink(node);
     }
     // Find all anchor tags within the node's descendants
@@ -182,12 +199,12 @@ window.addEventListener('load', () => {
 
 // Generate CSV data
 function generateCSV() {
-  let csv = 'Page URL,Link URL,Status,OK Count,Redirect Count,Broken Count,Network Error Count,Invalid URL Count,Unknown Count\n';
+  let csv = 'Page URL,Link URL,Status,OK Count,Redirect Count,Broken Count,Network Error Count,Invalid URL Count,Unknown Count,Jump Links Count\n';
   const pageUrl = window.location.href;
   
   Object.keys(statusUrls).forEach(status => {
     statusUrls[status].forEach(url => {
-      csv += `"${pageUrl}","${url}","${status}",${statusCounts.ok},${statusCounts.redirect},${statusCounts.broken},${statusCounts.network_error},${statusCounts.invalid_url},${statusCounts.unknown}\n`;
+      csv += `"${pageUrl}","${url}","${status}",${statusCounts.ok},${statusCounts.redirect},${statusCounts.broken},${statusCounts.network_error},${statusCounts.invalid_url},${statusCounts.unknown},${statusCounts.jump_links}\n`;
     });
   });
   
@@ -196,6 +213,9 @@ function generateCSV() {
 
 // Highlight link on page
 function highlightLinkOnPage(url, status) {
+  console.log(`[Content Script] Highlighting URL: ${url}, Status: ${status}`);
+  console.log(`[Content Script] Jump link elements:`, Array.from(jumpLinkElements.keys()));
+  
   // Clear previous highlight
   clearHighlight();
   
@@ -206,15 +226,29 @@ function highlightLinkOnPage(url, status) {
     broken: 'red',
     network_error: 'red',
     invalid_url: 'red',
-    unknown: 'gray'
+    unknown: 'gray',
+    jump_links: 'blue'
   };
   
   const color = statusColors[status] || 'gray';
   
-  // Find link with matching URL
+  // Check if it's a jump link first
+  if (jumpLinkElements.has(url)) {
+    console.log(`[Content Script] Found jump link element for: ${url}`);
+    const link = jumpLinkElements.get(url);
+    highlightedElement = link;
+    link.style.setProperty('outline', `2px dashed ${color}`, 'important');
+    link.style.setProperty('outline-offset', '2px', 'important');
+    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  
+  console.log(`[Content Script] Not found in jump links, searching regular links`);
+  // Find regular link with matching URL
   const links = document.querySelectorAll('a[href]');
   for (const link of links) {
     if (link.href === url) {
+      console.log(`[Content Script] Found regular link element for: ${url}`);
       highlightedElement = link;
       link.style.setProperty('outline', `2px dashed ${color}`, 'important');
       link.style.setProperty('outline-offset', '2px', 'important');
@@ -222,6 +256,7 @@ function highlightLinkOnPage(url, status) {
       break;
     }
   }
+  console.log(`[Content Script] No matching link found for: ${url}`);
 }
 
 // Clear highlight

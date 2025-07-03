@@ -88,7 +88,16 @@
             word-break: break-all;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+        }
+        
+        .url-text {
+            flex: 1;
+            margin-right: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-shrink: 0;
         }
         
         .open-btn {
@@ -98,7 +107,6 @@
             border-radius: 3px;
             padding: 2px 6px;
             font-size: 10px;
-            margin-left: 2px;
             flex-shrink: 0;
             display: inline-block;
         }
@@ -112,13 +120,12 @@
         .highlight-btn {
             background: #10b981;
             color: white;
-            text-decoration: none;
+            border: none;
             border-radius: 3px;
             padding: 2px 6px;
             font-size: 10px;
-            margin-left: 8px;
+            margin-right: 2px;
             flex-shrink: 0;
-            display: inline-block;
             cursor: pointer;
         }
         
@@ -176,6 +183,14 @@
                     <span id="error-count">0</span>
                 </summary>
                 <div id="error-urls" class="mt-1 ml-4 text-xs max-h-20 overflow-y-auto text-left"></div>
+            </details>
+            
+            <details class="mb-2">
+                <summary class="flex justify-between cursor-pointer">
+                    <span style="color: blue;">🔗 Jump Links:</span>
+                    <span id="jump-count">0</span>
+                </summary>
+                <div id="jump-urls" class="mt-1 ml-4 text-xs max-h-20 overflow-y-auto text-left"></div>
             </details>
         </div>
         <button id="export-btn" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm w-full">
